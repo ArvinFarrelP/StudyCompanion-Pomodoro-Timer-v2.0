@@ -1395,1020 +1395,1089 @@
     </audio>
 
     <script>
-        // ============================
-        // UTILITY FUNCTIONS
-        // ============================
+    // ============================
+    // UTILITY FUNCTIONS - DIPERBAIKI
+    // ============================
 
-        /**
-         * Debounce function untuk performance optimization
-         * Mencegah function dipanggil terlalu sering
-         */
-        const debounce = (func, wait) => {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
+    /**
+     * Debounce function untuk performance optimization
+     */
+    const debounce = (func, wait) => {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
                 clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
+                func(...args);
             };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
         };
+    };
 
-        /**
-         * Safe error handler untuk operations yang mungkin fail
-         */
-        const safeExecute = async (operation, fallback = null, errorMessage = 'Operation failed') => {
-            try {
-                return await operation();
-            } catch (error) {
-                console.error(`${errorMessage}:`, error);
-                if (fallback !== null) {
-                    return fallback;
-                }
-                throw error;
+    /**
+     * Safe error handler yang DIPERBAIKI dengan logging lebih baik
+     */
+    const safeExecute = async (operation, fallback = null, errorMessage = 'Operation failed') => {
+        try {
+            return await operation();
+        } catch (error) {
+            console.error(`${errorMessage}:`, {
+                error: error.message,
+                stack: error.stack,
+                timestamp: new Date().toISOString()
+            });
+            // Log ke analytics jika ada
+            if (typeof gtag !== 'undefined') {
+                gtag('event', 'exception', {
+                    description: errorMessage,
+                    fatal: false
+                });
             }
-        };
+            return fallback;
+        }
+    };
 
-        /**
-         * Robust video player dengan comprehensive error handling
-         */
-        const playVideoSafely = async (videoElement) => {
+    /**
+     * Robust video player dengan comprehensive error handling
+     */
+    const playVideoSafely = async (videoElement) => {
+        try {
+            await videoElement.play();
+            return true;
+        } catch (error) {
+            console.warn('Video autoplay failed, trying with muted:', error);
+            
             try {
-                // Coba play video
+                videoElement.muted = true;
                 await videoElement.play();
                 return true;
-            } catch (error) {
-                console.warn('Video autoplay failed, trying with muted:', error);
+            } catch (error2) {
+                console.error('Video play failed completely:', error2);
                 
-                try {
-                    // Fallback 1: Coba dengan muted
-                    videoElement.muted = true;
-                    await videoElement.play();
-                    return true;
-                } catch (error2) {
-                    console.error('Video play failed completely:', error2);
-                    
-                    // Fallback 2: Show fallback UI
-                    const fallback = document.getElementById('videoFallback');
-                    if (fallback) {
-                        fallback.style.display = 'flex';
-                    }
-                    
-                    // Fallback 3: Coba lagi dengan user interaction
-                    const tryOnce = () => {
-                        videoElement.play().catch(() => {});
-                        document.removeEventListener('click', tryOnce);
-                    };
-                    document.addEventListener('click', tryOnce);
-                    
-                    return false;
+                const fallback = document.getElementById('videoFallback');
+                if (fallback) {
+                    fallback.style.display = 'flex';
                 }
+                
+                const tryOnce = () => {
+                    videoElement.play().catch(() => {});
+                    document.removeEventListener('click', tryOnce);
+                };
+                document.addEventListener('click', tryOnce);
+                
+                return false;
             }
-        };
+        }
+    };
 
-        // ============================
-        // STATE MANAGEMENT
-        // ============================
+    // ============================
+    // STATE MANAGEMENT
+    // ============================
+    
+    // Timer State
+    let timeLeft = 25 * 60;
+    let totalTime = 25 * 60;
+    let isRunning = false;
+    let isFocusSession = true;
+    let timerInterval;
+    let sessionCounter = 0;
+    let totalMinutesWorked = 0;
+    let breakTime = 5 * 60;
+    let currentFocusTime = 25 * 60;
+    let lastUpdate = performance.now(); // DIPERBAIKI: gunakan performance.now()
+
+    // Settings
+    let musicEnabled = false;
+    let soundEnabled = true;
+    let currentTheme = 'mint';
+    let currentMusic = 'coffee-vibes';
+    let musicPanelOpen = false;
+    let currentVolume = 0.5;
+
+    // Statistics
+    let stats = {
+        sessionsCompleted: 0,
+        totalFocusTime: 0,
+        dailyGoal: 4,
+        streak: 0
+    };
+
+    // Achievements
+    let achievements = {
+        firstSession: false,
+        focusMaster: false,
+        marathonRunner: false,
+        earlyBird: false
+    };
+
+    // Video Sequence Management
+    let currentVideoIndex = 0;
+    const videoSources = [
+        {
+            src: "./assets/videos/Blue Archive - Hikari Live2D - Jaymie (1080p, h264).mp4",
+            title: "Blue Archive - Hikari",
+            subtitle: "Live2D Animation"
+        },
+        {
+            src: "./assets/videos/Blue Archive - Nozomi Live2D - Jaymie (1080p, h264).mp4", 
+            title: "Blue Archive - Nozomi",
+            subtitle: "Live2D Animation"
+        }
+    ];
+
+    // Motivational Quotes
+    const motivationalQuotes = [
+        { 
+            text: "U-Um... mari kita fokus sebentar lagi, Sensei! Kita pasti bisa!", 
+            author: "Hikari",
+            image: "./assets/images/Hikari_icon.jpg"
+        },
+        { 
+            text: "Jangan menyerah... setiap menit yang kita habiskan akan membuahkan hasil!", 
+            author: "Hikari",
+            image: "./assets/images/Hikari_icon.jpg"
+        },
+        { 
+            text: "Ayo semangat, Sensei! Waktu fokus dimulai! Kita pasti bisa menyelesaikannya! 🔥", 
+            author: "Nozomi",
+            image: "./assets/images/Nozomi_icon.jpg"
+        },
+        { 
+            text: "Mari kita bakar semangat belajar! Nozomi akan mendukung Sensei!", 
+            author: "Nozomi",
+            image: "./assets/images/Nozomi_icon.jpg"
+        },
+        { 
+            text: "Waktunya istirahat! Ayo kita regangkan badan dan minum sesuatu! 🎉", 
+            author: "Nozomi",
+            image: "./assets/images/Nozomi_icon.jpg"
+        }
+    ];
+
+    // Music Options
+    const musicOptions = [
+        {
+            id: 'coffee-vibes',
+            name: 'Coffee Vibes',
+            icon: 'fa-coffee',
+            file: './assets/music/coffee-vibes.mp3'
+        },
+        {
+            id: 'lofi-study',
+            name: 'Lofi Study',
+            icon: 'fa-headphones',
+            file: './assets/music/lofi-study.mp3'
+        },
+        {
+            id: 'rainy-coding',
+            name: 'Rainy Coding',
+            icon: 'fa-cloud-rain',
+            file: './assets/music/rainy-coding.mp3'
+        }
+    ];
+
+    // ============================
+    // DOM ELEMENTS
+    // ============================
+
+    // Timer Elements
+    const timerDisplay = document.getElementById('timerDisplay');
+    const timerStatus = document.getElementById('timerStatus');
+    const progressBarVisible = document.getElementById('progressBarVisible');
+    const progressCircle = document.getElementById('progressCircle');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const continueBtn = document.getElementById('continueBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const sessionType = document.getElementById('sessionType');
+    const sessionIcon = document.getElementById('sessionIcon');
+    const sessionCount = document.getElementById('sessionCount');
+    const totalMinutesEl = document.getElementById('totalMinutes');
+
+    // Video Elements
+    const videoElement = document.getElementById('hikariVideo');
+    const videoFallback = document.getElementById('videoFallback');
+    const videoTitle = document.getElementById('videoTitle');
+    const videoSubtitle = document.getElementById('videoSubtitle');
+
+    // Audio Elements
+    const backgroundMusic = document.getElementById('backgroundMusic');
+    const completionSound = document.getElementById('completionSound');
+    const musicControlBtn = document.getElementById('musicControlBtn');
+    const musicPanel = document.getElementById('musicPanel');
+    const volumeSliderExternal = document.getElementById('volumeSliderExternal');
+    const volumeIconExternal = document.getElementById('volumeIconExternal');
+
+    // Music Selector Elements
+    const musicOptionsElements = document.querySelectorAll('.music-option');
+
+    // Character & Quotes
+    const characterContainer = document.getElementById('characterContainer');
+    const characterImage = document.getElementById('characterImage');
+    const motivationalQuote = document.getElementById('motivationalQuote');
+    const quoteAuthor = document.getElementById('quoteAuthor');
+    const quoteCharacterImage = document.getElementById('quoteCharacterImage');
+
+    // Theme & Customization
+    const themeButtons = document.querySelectorAll('.theme-btn');
+    const bodyTheme = document.getElementById('body-theme');
+
+    // Statistics
+    const statsSessions = document.getElementById('statsSessions');
+    const statsTotalTime = document.getElementById('statsTotalTime');
+    const statsProductivity = document.getElementById('statsProductivity');
+
+    // Notifications
+    const notification = document.getElementById('notification');
+    const notificationText = document.getElementById('notificationText');
+    const achievementPopup = document.getElementById('achievementPopup');
+    const achievementIcon = document.getElementById('achievementIcon');
+    const achievementTitle = document.getElementById('achievementTitle');
+    const achievementDesc = document.getElementById('achievementDesc');
+
+    // Splash Screen
+    const splashScreen = document.getElementById('splash-screen');
+
+    // ============================
+    // CORE FUNCTIONS
+    // ============================
+
+    // Format time for timer
+    function formatTime(seconds) {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+
+    // Update timer display
+    function updateDisplay() {
+        timerDisplay.textContent = formatTime(timeLeft);
+        const progress = ((totalTime - timeLeft) / totalTime) * 100;
         
-        // Timer State
-        let timeLeft = 25 * 60;
-        let totalTime = 25 * 60;
-        let isRunning = false;
-        let isFocusSession = true;
-        let timerInterval;
-        let sessionCounter = 0;
-        let totalMinutesWorked = 0;
-        let breakTime = 5 * 60;
-        let currentFocusTime = 25 * 60;
-        let lastUpdate = Date.now();
+        // Update progress bar yang jelas
+        progressBarVisible.style.setProperty('--progress-width', `${progress}%`);
+        progressBarVisible.setAttribute('aria-valuenow', progress);
+        
+        const circumference = 2 * Math.PI * 90;
+        const offset = circumference - (progress / 100) * circumference;
+        progressCircle.style.strokeDashoffset = offset;
+    }
 
-        // Settings
-        let musicEnabled = false;
-        let soundEnabled = true;
-        let currentTheme = 'mint';
-        let currentMusic = 'coffee-vibes';
-        let musicPanelOpen = false;
-        let currentVolume = 0.5;
+    // ============================
+    // TIMER FUNCTIONS - DIPERBAIKI
+    // ============================
 
-        // Statistics
-        let stats = {
-            sessionsCompleted: 0,
-            totalFocusTime: 0,
-            dailyGoal: 4,
-            streak: 0
-        };
-
-        // Achievements
-        let achievements = {
-            firstSession: false,
-            focusMaster: false,
-            marathonRunner: false,
-            earlyBird: false
-        };
-
-        // Video Sequence Management
-        let currentVideoIndex = 0;
-        const videoSources = [
-            {
-                src: "./assets/videos/Blue Archive - Hikari Live2D - Jaymie (1080p, h264).mp4",
-                title: "Blue Archive - Hikari",
-                subtitle: "Live2D Animation"
-            },
-            {
-                src: "./assets/videos/Blue Archive - Nozomi Live2D - Jaymie (1080p, h264).mp4", 
-                title: "Blue Archive - Nozomi",
-                subtitle: "Live2D Animation"
-            }
-        ];
-
-        // Motivational Quotes
-        const motivationalQuotes = [
-            { 
-                text: "U-Um... mari kita fokus sebentar lagi, Sensei! Kita pasti bisa!", 
-                author: "Hikari",
-                image: "./assets/images/Hikari_icon.jpg"
-            },
-            { 
-                text: "Jangan menyerah... setiap menit yang kita habiskan akan membuahkan hasil!", 
-                author: "Hikari",
-                image: "./assets/images/Hikari_icon.jpg"
-            },
-            { 
-                text: "Ayo semangat, Sensei! Waktu fokus dimulai! Kita pasti bisa menyelesaikannya! 🔥", 
-                author: "Nozomi",
-                image: "./assets/images/Nozomi_icon.jpg"
-            },
-            { 
-                text: "Mari kita bakar semangat belajar! Nozomi akan mendukung Sensei!", 
-                author: "Nozomi",
-                image: "./assets/images/Nozomi_icon.jpg"
-            },
-            { 
-                text: "Waktunya istirahat! Ayo kita regangkan badan dan minum sesuatu! 🎉", 
-                author: "Nozomi",
-                image: "./assets/images/Nozomi_icon.jpg"
-            }
-        ];
-
-        // Music Options
-        const musicOptions = [
-            {
-                id: 'coffee-vibes',
-                name: 'Coffee Vibes',
-                icon: 'fa-coffee',
-                file: './assets/music/coffee-vibes.mp3'
-            },
-            {
-                id: 'lofi-study',
-                name: 'Lofi Study',
-                icon: 'fa-headphones',
-                file: './assets/music/lofi-study.mp3'
-            },
-            {
-                id: 'rainy-coding',
-                name: 'Rainy Coding',
-                icon: 'fa-cloud-rain',
-                file: './assets/music/rainy-coding.mp3'
-            }
-        ];
-
-        // ============================
-        // DOM ELEMENTS
-        // ============================
-
-        // Timer Elements
-        const timerDisplay = document.getElementById('timerDisplay');
-        const timerStatus = document.getElementById('timerStatus');
-        const progressBar = document.getElementById('progressBar');
-        const progressBarVisible = document.getElementById('progressBarVisible');
-        const progressCircle = document.getElementById('progressCircle');
-        const startBtn = document.getElementById('startBtn');
-        const pauseBtn = document.getElementById('pauseBtn');
-        const continueBtn = document.getElementById('continueBtn');
-        const resetBtn = document.getElementById('resetBtn');
-        const sessionType = document.getElementById('sessionType');
-        const sessionIcon = document.getElementById('sessionIcon');
-        const sessionCount = document.getElementById('sessionCount');
-        const totalMinutesEl = document.getElementById('totalMinutes');
-
-        // Video Elements
-        const videoElement = document.getElementById('hikariVideo');
-        const videoFallback = document.getElementById('videoFallback');
-        const videoTitle = document.getElementById('videoTitle');
-        const videoSubtitle = document.getElementById('videoSubtitle');
-
-        // Audio Elements
-        const backgroundMusic = document.getElementById('backgroundMusic');
-        const completionSound = document.getElementById('completionSound');
-        const musicControlBtn = document.getElementById('musicControlBtn');
-        const musicPanel = document.getElementById('musicPanel');
-        const volumeSliderExternal = document.getElementById('volumeSliderExternal');
-        const volumeIconExternal = document.getElementById('volumeIconExternal');
-
-        // Music Selector Elements
-        const musicOptionsElements = document.querySelectorAll('.music-option');
-
-        // Character & Quotes
-        const characterContainer = document.getElementById('characterContainer');
-        const characterImage = document.getElementById('characterImage');
-        const characterLevel = document.getElementById('characterLevel');
-        const motivationalQuote = document.getElementById('motivationalQuote');
-        const quoteAuthor = document.getElementById('quoteAuthor');
-        const quoteCharacterImage = document.getElementById('quoteCharacterImage');
-
-        // Theme & Customization
-        const themeButtons = document.querySelectorAll('.theme-btn');
-        const bodyTheme = document.getElementById('body-theme');
-
-        // Statistics
-        const statsSessions = document.getElementById('statsSessions');
-        const statsTotalTime = document.getElementById('statsTotalTime');
-        const statsProductivity = document.getElementById('statsProductivity');
-
-        // Notifications
-        const notification = document.getElementById('notification');
-        const notificationText = document.getElementById('notificationText');
-        const achievementPopup = document.getElementById('achievementPopup');
-        const achievementIcon = document.getElementById('achievementIcon');
-        const achievementTitle = document.getElementById('achievementTitle');
-        const achievementDesc = document.getElementById('achievementDesc');
-
-        // Splash Screen
-        const splashScreen = document.getElementById('splash-screen');
-        const splashCharacterImage = document.getElementById('splash-character-image');
-
-        // ============================
-        // CORE FUNCTIONS
-        // ============================
-
-        // Format time for timer
-        function formatTime(seconds) {
-            const mins = Math.floor(seconds / 60);
-            const secs = seconds % 60;
-            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-        }
-
-        // Update timer display
-        function updateDisplay() {
-            timerDisplay.textContent = formatTime(timeLeft);
-            const progress = ((totalTime - timeLeft) / totalTime) * 100;
+    // Performance optimized timer menggunakan requestAnimationFrame DENGAN PERBAIKAN
+    function animateTimer() {
+        if (!isRunning) return;
+        
+        const now = performance.now(); // DIPERBAIKI: gunakan performance API
+        const delta = now - lastUpdate;
+        
+        if (delta >= 1000) {
+            timeLeft--;
+            updateDisplay();
+            lastUpdate = now;
             
-            // Update progress bar yang jelas
-            progressBarVisible.style.setProperty('--progress-width', `${progress}%`);
-            progressBarVisible.setAttribute('aria-valuenow', progress);
-            
-            const circumference = 2 * Math.PI * 90;
-            const offset = circumference - (progress / 100) * circumference;
-            progressCircle.style.strokeDashoffset = offset;
-        }
-
-        // ============================
-        // PERBAIKAN: MUSIC CONTROL FUNCTIONS
-        // ============================
-
-        // Toggle music panel
-        function toggleMusicPanel() {
-            musicPanelOpen = !musicPanelOpen;
-            
-            if (musicPanelOpen) {
-                musicPanel.classList.add('show');
-                musicControlBtn.classList.add('active');
-                musicControlBtn.setAttribute('aria-expanded', 'true');
-                // Tambahkan animation untuk feedback yang lebih baik
-                musicControlBtn.style.transform = 'scale(1.1)';
-            } else {
-                musicPanel.classList.remove('show');
-                musicControlBtn.classList.remove('active');
-                musicControlBtn.setAttribute('aria-expanded', 'false');
-                musicControlBtn.style.transform = '';
-            }
-        }
-
-        // Function toggle music yang lebih smooth
-        function toggleMusic() {
-            musicEnabled = !musicEnabled;
-            
-            if (musicEnabled) {
-                backgroundMusic.volume = currentVolume;
-                safeExecute(
-                    () => backgroundMusic.play(),
-                    null,
-                    'Background music play failed'
-                ).then(success => {
-                    if (!success) {
-                        // Fallback strategy
-                        showNotification('info', 'Click anywhere to enable music');
-                        document.addEventListener('click', function tryPlayOnce() {
-                            safeExecute(() => backgroundMusic.play());
-                            document.removeEventListener('click', tryPlayOnce);
-                        });
-                    }
+            // Batch DOM updates untuk performance yang lebih baik
+            if (isFocusSession && timeLeft % 60 === 0) {
+                totalMinutesWorked++;
+                requestAnimationFrame(() => {
+                    totalMinutesEl.textContent = totalMinutesWorked;
+                    stats.totalFocusTime++;
+                    updateStatistics();
                 });
-                
-                musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
-                musicControlBtn.classList.add('active');
-                showNotification('music', 'Music enabled 🎵');
-                
-            } else {
-                backgroundMusic.pause();
-                musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
-                musicControlBtn.classList.remove('active');
-                showNotification('music', 'Music disabled 🔇');
             }
             
-            // Save music state
-            saveSettings();
+            if (timeLeft <= 0) {
+                isRunning = false;
+                completeSession();
+                return;
+            }
         }
+        
+        requestAnimationFrame(animateTimer);
+    }
 
-        // Function change music yang diperbaiki
-        function changeMusic(musicId) {
-            currentMusic = musicId;
-            
-            // Update UI music options
-            musicOptionsElements.forEach(option => {
-                const isActive = option.dataset.music === musicId;
-                option.classList.toggle('active', isActive);
-                option.setAttribute('aria-checked', isActive.toString());
-            });
-            
-            // Change music source
-            const selectedMusic = musicOptions.find(m => m.id === musicId);
-            if (selectedMusic) {
-                const wasPlaying = !backgroundMusic.paused;
-                
-                backgroundMusic.pause();
-                backgroundMusic.src = selectedMusic.file;
-                backgroundMusic.volume = currentVolume;
-                
-                if (wasPlaying && musicEnabled) {
-                    safeExecute(() => backgroundMusic.play());
-                }
-                
-                showNotification('music', `Now playing: ${selectedMusic.name} 🎧`);
-            }
-            
-            saveSettings();
-        }
+    // Start timer dengan performance optimization
+    function startTimer() {
+        if (isRunning) return;
+        
+        isRunning = true;
+        lastUpdate = performance.now(); // DIPERBAIKI
+        startBtn.classList.add('hidden');
+        pauseBtn.classList.remove('hidden');
+        continueBtn.classList.add('hidden');
+        
+        timerStatus.textContent = isFocusSession ? 'Stay focused!' : 'Take a break!';
+        
+        // Update character animation
+        characterContainer.classList.add('character-talking');
+        setTimeout(() => characterContainer.classList.remove('character-talking'), 500);
+        
+        animateTimer();
+    }
 
-        // Volume control yang lebih smooth untuk volume external
-        const updateVolumeExternal = debounce(function(value) {
-            currentVolume = value / 100;
-            backgroundMusic.volume = currentVolume;
-            completionSound.volume = currentVolume;
-            
-            // Update volume icon dengan animation
-            if (value == 0) {
-                volumeIconExternal.className = 'fas fa-volume-mute volume-icon-external';
-                volumeIconExternal.style.transform = 'scale(1.1)';
-            } else if (value < 30) {
-                volumeIconExternal.className = 'fas fa-volume-down volume-icon-external';
-                volumeIconExternal.style.transform = 'scale(1.05)';
-            } else if (value < 70) {
-                volumeIconExternal.className = 'fas fa-volume-up volume-icon-external';
-                volumeIconExternal.style.transform = '';
+    // Pause timer
+    function pauseTimer() {
+        if (!isRunning) return;
+        
+        isRunning = false;
+        pauseBtn.classList.add('hidden');
+        continueBtn.classList.remove('hidden');
+        timerStatus.textContent = 'Paused';
+    }
+
+    // Continue timer
+    function continueTimer() {
+        if (isRunning) return;
+        
+        isRunning = true;
+        lastUpdate = performance.now(); // DIPERBAIKI
+        continueBtn.classList.add('hidden');
+        pauseBtn.classList.remove('hidden');
+        timerStatus.textContent = isFocusSession ? 'Stay focused!' : 'Take a break!';
+        
+        animateTimer();
+    }
+
+    // Reset timer
+    function resetTimer() {
+        isRunning = false;
+        timeLeft = isFocusSession ? currentFocusTime : breakTime;
+        totalTime = isFocusSession ? currentFocusTime : breakTime;
+        updateDisplay();
+        
+        // Reset button states
+        startBtn.classList.remove('hidden');
+        pauseBtn.classList.add('hidden');
+        continueBtn.classList.add('hidden');
+        
+        timerStatus.textContent = isFocusSession ? 'Ready to focus' : 'Ready for break';
+    }
+
+    // ============================
+    // PERBAIKAN: BUTTON FUNCTIONS dengan error handling lebih baik
+    // ============================
+
+    // Change interval dengan debounce
+    const changeInterval = debounce(function(minutes) {
+        currentFocusTime = minutes * 60;
+        
+        if (isFocusSession) {
+            if (isRunning) {
+                timeLeft = currentFocusTime;
+                totalTime = currentFocusTime;
             } else {
-                volumeIconExternal.className = 'fas fa-volume-up volume-icon-external';
-                volumeIconExternal.style.transform = 'scale(1.1)';
+                timeLeft = currentFocusTime;
+                totalTime = currentFocusTime;
+            }
+            updateDisplay();
+        }
+        
+        // Update active interval button
+        document.querySelectorAll('.interval-btn').forEach(btn => {
+            const btnMinutes = parseInt(btn.dataset.minutes);
+            const isActive = btnMinutes === minutes;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive.toString());
+        });
+
+        showNotification('clock', `Focus time set to ${minutes} minutes`);
+    }, 300);
+
+    // Change break time dengan debounce
+    const changeBreakTime = debounce(function(minutes) {
+        breakTime = minutes * 60;
+        
+        if (!isFocusSession) {
+            if (isRunning) {
+                timeLeft = breakTime;
+                totalTime = breakTime;
+            } else {
+                timeLeft = breakTime;
+                totalTime = breakTime;
+            }
+            updateDisplay();
+        }
+        
+        // Update active break button
+        document.querySelectorAll('.break-btn').forEach(btn => {
+            const btnMinutes = parseInt(btn.dataset.minutes);
+            const isActive = btnMinutes === minutes;
+            btn.classList.toggle('active', isActive);
+            btn.setAttribute('aria-pressed', isActive.toString());
+        });
+
+        showNotification('coffee', `Break time set to ${minutes} minutes`);
+    }, 300);
+
+    // ============================
+    // CSS PERBAIKAN UNTUK MOBILE EXTREME
+    // ============================
+
+    // Tambahkan CSS untuk mobile extreme (iPhone SE)
+    const mobileOptimizationCSS = `
+        @media (max-width: 320px) {
+            .timer-container {
+                min-height: 140px !important; /* JAMIN MINIMAL SIZE */
+                height: clamp(140px, 25vw, 160px) !important;
             }
             
-            setTimeout(() => {
-                volumeIconExternal.style.transform = '';
-            }, 200);
+            .progress-ring {
+                width: clamp(120px, 22vw, 140px) !important;
+                height: clamp(120px, 22vw, 140px) !important;
+            }
             
-            saveSettings();
-        }, 100);
+            .timer-text {
+                padding: 0.25rem !important;
+            }
+            
+            .text-4xl, .text-5xl {
+                font-size: 2rem !important;
+            }
+            
+            /* Pastikan touch target cukup besar */
+            .control-btn, .main-btn, .secondary-btn {
+                min-height: 44px !important;
+                min-width: 44px !important;
+            }
+            
+            /* Optimasi spacing untuk device kecil */
+            .space-y-6 > * {
+                margin-top: 0.5rem !important;
+                margin-bottom: 0.5rem !important;
+            }
+        }
+        
+        @media (max-width: 280px) {
+            /* Untuk device yang sangat kecil */
+            .timer-container {
+                min-height: 130px !important;
+                height: clamp(130px, 20vw, 150px) !important;
+            }
+            
+            .progress-ring {
+                width: clamp(110px, 20vw, 130px) !important;
+                height: clamp(110px, 20vw, 130px) !important;
+            }
+            
+            .text-4xl, .text-5xl {
+                font-size: 1.75rem !important;
+            }
+        }
+    `;
 
-        // Close music panel
-        function closeMusicPanel() {
-            musicPanelOpen = false;
+    // Inject CSS untuk mobile optimization
+    function injectMobileOptimizationCSS() {
+        const style = document.createElement('style');
+        style.textContent = mobileOptimizationCSS;
+        document.head.appendChild(style);
+    }
+
+    // ============================
+    // PERBAIKAN: MUSIC CONTROL FUNCTIONS
+    // ============================
+
+    // Toggle music panel
+    function toggleMusicPanel() {
+        musicPanelOpen = !musicPanelOpen;
+        
+        if (musicPanelOpen) {
+            musicPanel.classList.add('show');
+            musicControlBtn.classList.add('active');
+            musicControlBtn.setAttribute('aria-expanded', 'true');
+            musicControlBtn.style.transform = 'scale(1.1)';
+        } else {
             musicPanel.classList.remove('show');
             musicControlBtn.classList.remove('active');
             musicControlBtn.setAttribute('aria-expanded', 'false');
             musicControlBtn.style.transform = '';
         }
+    }
 
-        // ============================
-        // SETTINGS MANAGEMENT
-        // ============================
-
-        function saveSettings() {
-            const settings = {
-                theme: currentTheme,
-                musicEnabled: musicEnabled,
-                soundEnabled: soundEnabled,
-                volume: currentVolume,
-                currentMusic: currentMusic,
-                achievements: achievements,
-                stats: stats
-            };
-            try {
-                localStorage.setItem('animePomodoroSettings', JSON.stringify(settings));
-            } catch (error) {
-                console.error('Failed to save settings:', error);
-            }
-        }
-
-        function loadSettings() {
-            try {
-                const saved = localStorage.getItem('animePomodoroSettings');
-                if (saved) {
-                    const settings = JSON.parse(saved);
-                    
-                    // Apply settings dengan error handling
-                    if (settings.theme) changeTheme(settings.theme);
-                    if (settings.musicEnabled !== undefined) musicEnabled = settings.musicEnabled;
-                    if (settings.volume !== undefined) {
-                        currentVolume = settings.volume;
-                        volumeSliderExternal.value = currentVolume * 100;
-                        updateVolumeExternal(volumeSliderExternal.value);
-                    }
-                    if (settings.currentMusic) changeMusic(settings.currentMusic);
-                    if (settings.achievements) achievements = {...achievements, ...settings.achievements};
-                    if (settings.stats) stats = {...stats, ...settings.stats};
-                    
-                    // Update UI berdasarkan settings
-                    updateMusicUI();
-                    
+    // Function toggle music yang lebih smooth
+    function toggleMusic() {
+        musicEnabled = !musicEnabled;
+        
+        if (musicEnabled) {
+            backgroundMusic.volume = currentVolume;
+            safeExecute(
+                () => backgroundMusic.play(),
+                null,
+                'Background music play failed'
+            ).then(success => {
+                if (!success) {
+                    showNotification('info', 'Click anywhere to enable music');
+                    document.addEventListener('click', function tryPlayOnce() {
+                        safeExecute(() => backgroundMusic.play());
+                        document.removeEventListener('click', tryPlayOnce);
+                    });
                 }
-            } catch (e) {
-                console.error('Error loading settings:', e);
-            }
+            });
+            
+            musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
+            musicControlBtn.classList.add('active');
+            showNotification('music', 'Music enabled 🎵');
+            
+        } else {
+            backgroundMusic.pause();
+            musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
+            musicControlBtn.classList.remove('active');
+            showNotification('music', 'Music disabled 🔇');
         }
+        
+        saveSettings();
+    }
 
-        function updateMusicUI() {
-            // Update music button state
-            if (musicEnabled) {
-                musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
-                musicControlBtn.classList.add('active');
-            } else {
-                musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
-                musicControlBtn.classList.remove('active');
+    // Function change music yang diperbaiki
+    function changeMusic(musicId) {
+        currentMusic = musicId;
+        
+        // Update UI music options
+        musicOptionsElements.forEach(option => {
+            const isActive = option.dataset.music === musicId;
+            option.classList.toggle('active', isActive);
+            option.setAttribute('aria-checked', isActive.toString());
+        });
+        
+        // Change music source
+        const selectedMusic = musicOptions.find(m => m.id === musicId);
+        if (selectedMusic) {
+            const wasPlaying = !backgroundMusic.paused;
+            
+            backgroundMusic.pause();
+            backgroundMusic.src = selectedMusic.file;
+            backgroundMusic.volume = currentVolume;
+            
+            if (wasPlaying && musicEnabled) {
+                safeExecute(() => backgroundMusic.play());
             }
             
-            // Update music options
-            musicOptionsElements.forEach(option => {
-                const isActive = option.dataset.music === currentMusic;
-                option.classList.toggle('active', isActive);
-                option.setAttribute('aria-checked', isActive.toString());
+            showNotification('music', `Now playing: ${selectedMusic.name} 🎧`);
+        }
+        
+        saveSettings();
+    }
+
+    // Volume control yang lebih smooth untuk volume external
+    const updateVolumeExternal = debounce(function(value) {
+        currentVolume = value / 100;
+        backgroundMusic.volume = currentVolume;
+        completionSound.volume = currentVolume;
+        
+        // Update volume icon dengan animation
+        if (value == 0) {
+            volumeIconExternal.className = 'fas fa-volume-mute volume-icon-external';
+            volumeIconExternal.style.transform = 'scale(1.1)';
+        } else if (value < 30) {
+            volumeIconExternal.className = 'fas fa-volume-down volume-icon-external';
+            volumeIconExternal.style.transform = 'scale(1.05)';
+        } else if (value < 70) {
+            volumeIconExternal.className = 'fas fa-volume-up volume-icon-external';
+            volumeIconExternal.style.transform = '';
+        } else {
+            volumeIconExternal.className = 'fas fa-volume-up volume-icon-external';
+            volumeIconExternal.style.transform = 'scale(1.1)';
+        }
+        
+        setTimeout(() => {
+            volumeIconExternal.style.transform = '';
+        }, 200);
+        
+        saveSettings();
+    }, 100);
+
+    // Close music panel
+    function closeMusicPanel() {
+        musicPanelOpen = false;
+        musicPanel.classList.remove('show');
+        musicControlBtn.classList.remove('active');
+        musicControlBtn.setAttribute('aria-expanded', 'false');
+        musicControlBtn.style.transform = '';
+    }
+
+    // ============================
+    // SETTINGS MANAGEMENT
+    // ============================
+
+    function saveSettings() {
+        const settings = {
+            theme: currentTheme,
+            musicEnabled: musicEnabled,
+            soundEnabled: soundEnabled,
+            volume: currentVolume,
+            currentMusic: currentMusic,
+            achievements: achievements,
+            stats: stats
+        };
+        try {
+            localStorage.setItem('animePomodoroSettings', JSON.stringify(settings));
+        } catch (error) {
+            console.error('Failed to save settings:', error);
+        }
+    }
+
+    function loadSettings() {
+        try {
+            const saved = localStorage.getItem('animePomodoroSettings');
+            if (saved) {
+                const settings = JSON.parse(saved);
+                
+                // Apply settings dengan error handling
+                if (settings.theme) changeTheme(settings.theme);
+                if (settings.musicEnabled !== undefined) musicEnabled = settings.musicEnabled;
+                if (settings.volume !== undefined) {
+                    currentVolume = settings.volume;
+                    volumeSliderExternal.value = currentVolume * 100;
+                    updateVolumeExternal(volumeSliderExternal.value);
+                }
+                if (settings.currentMusic) changeMusic(settings.currentMusic);
+                if (settings.achievements) achievements = {...achievements, ...settings.achievements};
+                if (settings.stats) stats = {...stats, ...settings.stats};
+                
+                // Update UI berdasarkan settings
+                updateMusicUI();
+                
+            }
+        } catch (e) {
+            console.error('Error loading settings:', e);
+        }
+    }
+
+    function updateMusicUI() {
+        // Update music button state
+        if (musicEnabled) {
+            musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
+            musicControlBtn.classList.add('active');
+        } else {
+            musicControlBtn.innerHTML = '<i class="fas fa-music"></i>';
+            musicControlBtn.classList.remove('active');
+        }
+        
+        // Update music options
+        musicOptionsElements.forEach(option => {
+            const isActive = option.dataset.music === currentMusic;
+            option.classList.toggle('active', isActive);
+            option.setAttribute('aria-checked', isActive.toString());
+        });
+    }
+
+    // ============================
+    // VIDEO FUNCTIONS
+    // ============================
+
+    // Initialize video dengan comprehensive error handling
+    function initializeVideo() {
+        // Hide fallback when video loads successfully
+        videoElement.addEventListener('loadeddata', () => {
+            videoFallback.style.display = 'none';
+        });
+
+        // Handle video end event untuk lanjut ke video berikutnya
+        videoElement.addEventListener('ended', () => {
+            loadNextVideo();
+        });
+
+        // Show fallback if video fails to load
+        videoElement.addEventListener('error', () => {
+            console.error('Video loading error');
+            videoFallback.style.display = 'flex';
+        });
+
+        // Auto play video pertama setelah splash screen
+        setTimeout(() => {
+            if (videoElement.paused) {
+                playVideoSafely(videoElement);
+            }
+        }, 3500);
+    }
+
+    // Load next video in sequence dengan error handling
+    function loadNextVideo() {
+        try {
+            currentVideoIndex = (currentVideoIndex + 1) % videoSources.length;
+            const nextVideo = videoSources[currentVideoIndex];
+            
+            videoElement.src = nextVideo.src;
+            videoTitle.textContent = nextVideo.title;
+            videoSubtitle.textContent = nextVideo.subtitle;
+            
+            // Update character image based on current video
+            if (nextVideo.title.includes('Hikari')) {
+                characterImage.src = "./assets/images/Hikari_icon.jpg";
+                characterImage.alt = "Character companion Hikari";
+            } else if (nextVideo.title.includes('Nozomi')) {
+                characterImage.src = "./assets/images/Nozomi_icon.jpg";
+                characterImage.alt = "Character companion Nozomi";
+            }
+            
+            playVideoSafely(videoElement);
+        } catch (error) {
+            console.error('Error loading next video:', error);
+            videoFallback.style.display = 'flex';
+        }
+    }
+
+    // ============================
+    // FEATURE FUNCTIONS
+    // ============================
+
+    // Change motivational quote dengan gambar karakter
+    function changeMotivationalQuote() {
+        try {
+            const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+            motivationalQuote.textContent = randomQuote.text;
+            quoteAuthor.textContent = `- ${randomQuote.author}`;
+            quoteCharacterImage.src = randomQuote.image;
+            quoteCharacterImage.alt = `Quote character ${randomQuote.author}`;
+        } catch (error) {
+            console.error('Error changing motivational quote:', error);
+        }
+    }
+
+    // Change theme
+    function changeTheme(theme) {
+        currentTheme = theme;
+        bodyTheme.className = `min-h-screen py-8 px-4 theme-transition theme-${theme}`;
+        
+        themeButtons.forEach(btn => {
+            const isActive = btn.dataset.theme === theme;
+            btn.classList.toggle('border-2', isActive);
+            btn.classList.toggle('border-white', isActive);
+            btn.setAttribute('aria-pressed', isActive.toString());
+        });
+        
+        saveSettings();
+    }
+
+    // Update statistics
+    function updateStatistics() {
+        try {
+            statsSessions.textContent = stats.sessionsCompleted;
+            statsTotalTime.textContent = `${stats.totalFocusTime}min`;
+            
+            const productivity = Math.min(100, Math.floor((stats.sessionsCompleted / stats.dailyGoal) * 100));
+            statsProductivity.textContent = `${productivity}%`;
+            
+            saveSettings();
+        } catch (error) {
+            console.error('Error updating statistics:', error);
+        }
+    }
+
+    // Complete session
+    function completeSession() {
+        // Play completion sound dengan error handling
+        if (soundEnabled) {
+            safeExecute(() => {
+                completionSound.volume = currentVolume;
+                return completionSound.play();
             });
         }
-
-        // ============================
-        // TIMER FUNCTIONS
-        // ============================
-
-        // Performance optimized timer menggunakan requestAnimationFrame
-        function animateTimer() {
-            if (!isRunning) return;
-            
-            const now = Date.now();
-            const delta = now - lastUpdate;
-            
-            if (delta >= 1000) {
-                timeLeft--;
-                updateDisplay();
-                lastUpdate = now;
-                
-                if (isFocusSession && timeLeft % 60 === 0) {
-                    totalMinutesWorked++;
-                    totalMinutesEl.textContent = totalMinutesWorked;
-                    stats.totalFocusTime++;
-                    updateStatistics();
-                }
-                
-                if (timeLeft <= 0) {
-                    isRunning = false;
-                    completeSession();
-                    return;
-                }
+        
+        try {
+            if (isFocusSession) {
+                stats.sessionsCompleted++;
+                sessionCounter++;
+                sessionCount.textContent = sessionCounter;
+                updateStatistics();
+                checkAchievements();
+                showNotification('bell', 'Great work! Time for a break! 🎉');
+            } else {
+                showNotification('coffee', 'Break over! Ready to focus! 💪');
             }
             
-            requestAnimationFrame(animateTimer);
-        }
-
-        // Start timer dengan performance optimization
-        function startTimer() {
-            if (isRunning) return;
-            
-            isRunning = true;
-            lastUpdate = Date.now();
-            startBtn.classList.add('hidden');
-            pauseBtn.classList.remove('hidden');
-            continueBtn.classList.add('hidden');
-            
-            timerStatus.textContent = isFocusSession ? 'Stay focused!' : 'Take a break!';
-            
-            // Update character animation
-            characterContainer.classList.add('character-talking');
-            setTimeout(() => characterContainer.classList.remove('character-talking'), 500);
-            
-            animateTimer();
-        }
-
-        // Pause timer
-        function pauseTimer() {
-            if (!isRunning) return;
-            
-            isRunning = false;
-            pauseBtn.classList.add('hidden');
-            continueBtn.classList.remove('hidden');
-            timerStatus.textContent = 'Paused';
-        }
-
-        // Continue timer
-        function continueTimer() {
-            if (isRunning) return;
-            
-            isRunning = true;
-            lastUpdate = Date.now();
-            continueBtn.classList.add('hidden');
-            pauseBtn.classList.remove('hidden');
-            timerStatus.textContent = isFocusSession ? 'Stay focused!' : 'Take a break!';
-            
-            animateTimer();
-        }
-
-        // Reset timer
-        function resetTimer() {
-            isRunning = false;
+            isFocusSession = !isFocusSession;
             timeLeft = isFocusSession ? currentFocusTime : breakTime;
             totalTime = isFocusSession ? currentFocusTime : breakTime;
+            
+            sessionType.textContent = isFocusSession ? 'Focus Time' : 'Break Time';
+            sessionIcon.className = isFocusSession ? 'fas fa-clock text-soft-coral text-sm' : 'fas fa-coffee text-soft-coral text-sm';
+            
             updateDisplay();
             
-            // Reset button states
+            // Reset button states setelah session complete
             startBtn.classList.remove('hidden');
             pauseBtn.classList.add('hidden');
             continueBtn.classList.add('hidden');
             
             timerStatus.textContent = isFocusSession ? 'Ready to focus' : 'Ready for break';
+            
+            changeMotivationalQuote();
+        } catch (error) {
+            console.error('Error completing session:', error);
         }
+    }
 
-        // ============================
-        // BUTTON FUNCTIONS
-        // ============================
+    // Check achievements
+    function checkAchievements() {
+        try {
+            if (!achievements.firstSession && stats.sessionsCompleted >= 1) {
+                unlockAchievement('firstSession', '🔥', 'First Session!', 'Complete your first focus session');
+            }
+            if (!achievements.focusMaster && stats.sessionsCompleted >= 5) {
+                unlockAchievement('focusMaster', '⭐', 'Focus Master!', 'Complete 5 focus sessions');
+            }
+            if (!achievements.marathonRunner && stats.totalFocusTime >= 60) {
+                unlockAchievement('marathonRunner', '🏃', 'Marathon Runner!', 'Study for 60+ minutes');
+            }
+        } catch (error) {
+            console.error('Error checking achievements:', error);
+        }
+    }
 
-        // Change interval dengan debounce
-        const changeInterval = debounce(function(minutes) {
-            console.log('Changing interval to:', minutes, 'isRunning:', isRunning);
-            currentFocusTime = minutes * 60;
+    // Unlock achievement
+    function unlockAchievement(achievementId, icon, title, description) {
+        try {
+            achievements[achievementId] = true;
+            achievementIcon.textContent = icon;
+            achievementTitle.textContent = title;
+            achievementDesc.textContent = description;
+            achievementPopup.classList.remove('hidden');
             
-            // Jika sedang dalam focus session, update timer
-            if (isFocusSession) {
-                // Jika timer sedang berjalan, tetap jalankan dengan waktu baru
-                if (isRunning) {
-                    timeLeft = currentFocusTime;
-                    totalTime = currentFocusTime;
-                } else {
-                    // Jika timer tidak berjalan, reset ke waktu baru
-                    timeLeft = currentFocusTime;
-                    totalTime = currentFocusTime;
-                }
-                updateDisplay();
+            const badge = document.querySelector(`[data-achievement="${achievementId}"]`);
+            if (badge) {
+                badge.classList.add('unlocked');
+                badge.classList.remove('bg-gray-300');
+                badge.classList.add('bg-yellow-400');
             }
             
-            // Update active interval button
-            document.querySelectorAll('.interval-btn').forEach(btn => {
-                const btnMinutes = parseInt(btn.dataset.minutes);
-                const isActive = btnMinutes === minutes;
-                btn.classList.toggle('active', isActive);
-                btn.setAttribute('aria-pressed', isActive.toString());
-            });
-
-            showNotification('clock', `Focus time set to ${minutes} minutes`);
-        }, 300);
-
-        // Change break time dengan debounce
-        const changeBreakTime = debounce(function(minutes) {
-            console.log('Changing break time to:', minutes, 'isRunning:', isRunning);
-            breakTime = minutes * 60;
-            
-            // Jika sedang dalam break session, update timer
-            if (!isFocusSession) {
-                // Jika timer sedang berjalan, tetap jalankan dengan waktu baru
-                if (isRunning) {
-                    timeLeft = breakTime;
-                    totalTime = breakTime;
-                } else {
-                    // Jika timer tidak berjalan, reset ke waktu baru
-                    timeLeft = breakTime;
-                    totalTime = breakTime;
-                }
-                updateDisplay();
-            }
-            
-            // Update active break button
-            document.querySelectorAll('.break-btn').forEach(btn => {
-                const btnMinutes = parseInt(btn.dataset.minutes);
-                const isActive = btnMinutes === minutes;
-                btn.classList.toggle('active', isActive);
-                btn.setAttribute('aria-pressed', isActive.toString());
-            });
-
-            showNotification('coffee', `Break time set to ${minutes} minutes`);
-        }, 300);
-
-        // ============================
-        // VIDEO FUNCTIONS
-        // ============================
-
-        // Initialize video dengan comprehensive error handling
-        function initializeVideo() {
-            // Hide fallback when video loads successfully
-            videoElement.addEventListener('loadeddata', () => {
-                videoFallback.style.display = 'none';
-            });
-
-            // Handle video end event untuk lanjut ke video berikutnya
-            videoElement.addEventListener('ended', () => {
-                loadNextVideo();
-            });
-
-            // Show fallback if video fails to load
-            videoElement.addEventListener('error', () => {
-                console.error('Video loading error');
-                videoFallback.style.display = 'flex';
-            });
-
-            // Auto play video pertama setelah splash screen
             setTimeout(() => {
-                if (videoElement.paused) {
-                    playVideoSafely(videoElement);
-                }
-            }, 3500);
-        }
-
-        // Load next video in sequence dengan error handling
-        function loadNextVideo() {
-            try {
-                currentVideoIndex = (currentVideoIndex + 1) % videoSources.length;
-                const nextVideo = videoSources[currentVideoIndex];
-                
-                videoElement.src = nextVideo.src;
-                videoTitle.textContent = nextVideo.title;
-                videoSubtitle.textContent = nextVideo.subtitle;
-                
-                // Update character image based on current video
-                if (nextVideo.title.includes('Hikari')) {
-                    characterImage.src = "./assets/images/Hikari_icon.jpg";
-                    characterImage.alt = "Character companion Hikari";
-                } else if (nextVideo.title.includes('Nozomi')) {
-                    characterImage.src = "./assets/images/Nozomi_icon.jpg";
-                    characterImage.alt = "Character companion Nozomi";
-                }
-                
-                playVideoSafely(videoElement);
-            } catch (error) {
-                console.error('Error loading next video:', error);
-                videoFallback.style.display = 'flex';
-            }
-        }
-
-        // ============================
-        // FEATURE FUNCTIONS
-        // ============================
-
-        // Change motivational quote dengan gambar karakter
-        function changeMotivationalQuote() {
-            try {
-                const randomQuote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
-                motivationalQuote.textContent = randomQuote.text;
-                quoteAuthor.textContent = `- ${randomQuote.author}`;
-                quoteCharacterImage.src = randomQuote.image;
-                quoteCharacterImage.alt = `Quote character ${randomQuote.author}`;
-            } catch (error) {
-                console.error('Error changing motivational quote:', error);
-            }
-        }
-
-        // Change theme
-        function changeTheme(theme) {
-            currentTheme = theme;
-            bodyTheme.className = `min-h-screen py-8 px-4 theme-transition theme-${theme}`;
-            
-            themeButtons.forEach(btn => {
-                const isActive = btn.dataset.theme === theme;
-                btn.classList.toggle('border-2', isActive);
-                btn.classList.toggle('border-white', isActive);
-                btn.setAttribute('aria-pressed', isActive.toString());
-            });
+                achievementPopup.classList.add('hidden');
+            }, 3000);
             
             saveSettings();
+        } catch (error) {
+            console.error('Error unlocking achievement:', error);
         }
+    }
 
-        // Update statistics
-        function updateStatistics() {
-            try {
-                statsSessions.textContent = stats.sessionsCompleted;
-                statsTotalTime.textContent = `${stats.totalFocusTime}min`;
-                
-                const productivity = Math.min(100, Math.floor((stats.sessionsCompleted / stats.dailyGoal) * 100));
-                statsProductivity.textContent = `${productivity}%`;
-                
-                saveSettings();
-            } catch (error) {
-                console.error('Error updating statistics:', error);
-            }
+    // Show notification
+    function showNotification(icon, message) {
+        try {
+            const notifText = notificationText.querySelector('span');
+            const notifIcon = notificationText.querySelector('i');
+            notifIcon.className = `fas fa-${icon}`;
+            notifText.textContent = message;
+            notification.classList.remove('hidden');
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        } catch (error) {
+            console.error('Error showing notification:', error);
         }
+    }
 
-        // Complete session
-        function completeSession() {
-            // Play completion sound dengan error handling
-            if (soundEnabled) {
-                safeExecute(() => {
-                    completionSound.volume = currentVolume;
-                    return completionSound.play();
-                });
+    // ============================
+    // SPLASH SCREEN FUNCTIONS
+    // ============================
+
+    function handleSplashImageError() {
+        try {
+            const container = document.querySelector('.splash-character-container');
+            if (container) {
+                container.innerHTML = `
+                    <div class="splash-character-fallback">
+                        <i class="fas fa-user-friends"></i>
+                    </div>
+                `;
             }
-            
-            try {
-                if (isFocusSession) {
-                    stats.sessionsCompleted++;
-                    sessionCounter++;
-                    sessionCount.textContent = sessionCounter;
-                    updateStatistics();
-                    checkAchievements();
-                    showNotification('bell', 'Great work! Time for a break! 🎉');
-                } else {
-                    showNotification('coffee', 'Break over! Ready to focus! 💪');
-                }
-                
-                isFocusSession = !isFocusSession;
-                timeLeft = isFocusSession ? currentFocusTime : breakTime;
-                totalTime = isFocusSession ? currentFocusTime : breakTime;
-                
-                sessionType.textContent = isFocusSession ? 'Focus Time' : 'Break Time';
-                sessionIcon.className = isFocusSession ? 'fas fa-clock text-soft-coral text-sm' : 'fas fa-coffee text-soft-coral text-sm';
-                
-                updateDisplay();
-                
-                // Reset button states setelah session complete
-                startBtn.classList.remove('hidden');
-                pauseBtn.classList.add('hidden');
-                continueBtn.classList.add('hidden');
-                
-                timerStatus.textContent = isFocusSession ? 'Ready to focus' : 'Ready for break';
-                
-                changeMotivationalQuote();
-            } catch (error) {
-                console.error('Error completing session:', error);
-            }
+        } catch (error) {
+            console.error('Error handling splash image error:', error);
         }
+    }
 
-        // Check achievements
-        function checkAchievements() {
-            try {
-                if (!achievements.firstSession && stats.sessionsCompleted >= 1) {
-                    unlockAchievement('firstSession', '🔥', 'First Session!', 'Complete your first focus session');
-                }
-                if (!achievements.focusMaster && stats.sessionsCompleted >= 5) {
-                    unlockAchievement('focusMaster', '⭐', 'Focus Master!', 'Complete 5 focus sessions');
-                }
-                if (!achievements.marathonRunner && stats.totalFocusTime >= 60) {
-                    unlockAchievement('marathonRunner', '🏃', 'Marathon Runner!', 'Study for 60+ minutes');
-                }
-            } catch (error) {
-                console.error('Error checking achievements:', error);
-            }
-        }
-
-        // Unlock achievement
-        function unlockAchievement(achievementId, icon, title, description) {
-            try {
-                achievements[achievementId] = true;
-                achievementIcon.textContent = icon;
-                achievementTitle.textContent = title;
-                achievementDesc.textContent = description;
-                achievementPopup.classList.remove('hidden');
-                
-                const badge = document.querySelector(`[data-achievement="${achievementId}"]`);
-                if (badge) {
-                    badge.classList.add('unlocked');
-                    badge.classList.remove('bg-gray-300');
-                    badge.classList.add('bg-yellow-400');
-                }
-                
-                setTimeout(() => {
-                    achievementPopup.classList.add('hidden');
-                }, 3000);
-                
-                saveSettings();
-            } catch (error) {
-                console.error('Error unlocking achievement:', error);
-            }
-        }
-
-        // Show notification
-        function showNotification(icon, message) {
-            try {
-                const notifText = notificationText.querySelector('span');
-                const notifIcon = notificationText.querySelector('i');
-                notifIcon.className = `fas fa-${icon}`;
-                notifText.textContent = message;
-                notification.classList.remove('hidden');
-                setTimeout(() => {
-                    notification.classList.add('hidden');
-                }, 3000);
-            } catch (error) {
-                console.error('Error showing notification:', error);
-            }
-        }
-
-        // ============================
-        // SPLASH SCREEN FUNCTIONS
-        // ============================
-
-        function handleSplashImageError() {
-            try {
-                const container = document.querySelector('.splash-character-container');
-                if (container) {
-                    container.innerHTML = `
-                        <div class="splash-character-fallback">
-                            <i class="fas fa-user-friends"></i>
-                        </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error handling splash image error:', error);
-            }
-        }
-
-        function preloadSplashImage() {
-            try {
-                const img = new Image();
-                img.src = "./assets/images/TachibanaHikari_and_TachibanaNozomi.jpg";
-                img.onload = function() {
-                    console.log('Splash image loaded successfully');
-                };
-                img.onerror = function() {
-                    handleSplashImageError();
-                };
-            } catch (error) {
-                console.error('Error preloading splash image:', error);
+    function preloadSplashImage() {
+        try {
+            const img = new Image();
+            img.src = "./assets/images/TachibanaHikari_and_TachibanaNozomi.jpg";
+            img.onload = function() {
+                console.log('Splash image loaded successfully');
+            };
+            img.onerror = function() {
                 handleSplashImageError();
-            }
+            };
+        } catch (error) {
+            console.error('Error preloading splash image:', error);
+            handleSplashImageError();
         }
+    }
 
-        function hideSplashScreen() {
-            try {
-                splashScreen.style.opacity = '0';
-                splashScreen.style.transform = 'scale(1.1)';
-                
-                setTimeout(() => {
-                    splashScreen.style.display = 'none';
-                    document.querySelectorAll('.page-transition').forEach(el => {
-                        el.classList.add('page-loaded');
-                    });
-                }, 1000);
-            } catch (error) {
-                console.error('Error hiding splash screen:', error);
-                splashScreen.style.display = 'none';
-            }
-        }
-
-        // ============================
-        // PERBAIKAN: EVENT LISTENERS
-        // ============================
-
-        function initializeMusicEvents() {
-            // Music control button dengan better handling
-            musicControlBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                toggleMusicPanel();
-            });
-
-            // Double click untuk toggle music
-            musicControlBtn.addEventListener('dblclick', function(e) {
-                e.stopPropagation();
-                e.preventDefault();
-                toggleMusic();
-            });
-
-            // Music options selection
-            musicOptionsElements.forEach(option => {
-                option.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const musicId = this.dataset.music;
-                    changeMusic(musicId);
-                    
-                    // Close panel setelah select (optional)
-                    setTimeout(() => {
-                        closeMusicPanel();
-                    }, 800);
-                });
-            });
-
-            // Volume control external dengan debounce
-            volumeSliderExternal.addEventListener('input', function(e) {
-                updateVolumeExternal(this.value);
-            });
-
-            // Click outside untuk close panel
-            document.addEventListener('click', function(e) {
-                if (musicPanelOpen && 
-                    !musicPanel.contains(e.target) && 
-                    !musicControlBtn.contains(e.target)) {
-                    closeMusicPanel();
-                }
-            });
-
-            // Keyboard shortcuts
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape' && musicPanelOpen) {
-                    closeMusicPanel();
-                }
-            });
-        }
-
-        function initializeEventListeners() {
-            console.log('Initializing event listeners...');
+    function hideSplashScreen() {
+        try {
+            splashScreen.style.opacity = '0';
+            splashScreen.style.transform = 'scale(1.1)';
             
-            // Timer Events
-            startBtn.addEventListener('click', startTimer);
-            pauseBtn.addEventListener('click', pauseTimer);
-            continueBtn.addEventListener('click', continueTimer);
-            resetBtn.addEventListener('click', resetTimer);
-
-            // Music Events
-            initializeMusicEvents();
-
-            // Theme Events
-            themeButtons.forEach(btn => {
-                btn.addEventListener('click', () => changeTheme(btn.dataset.theme));
-            });
-
-            // Interval buttons dengan debounce
-            document.querySelectorAll('.interval-btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const minutes = parseInt(this.getAttribute('data-minutes'));
-                    console.log('Interval button clicked:', minutes, 'isRunning:', isRunning);
-                    changeInterval(minutes);
+            setTimeout(() => {
+                splashScreen.style.display = 'none';
+                document.querySelectorAll('.page-transition').forEach(el => {
+                    el.classList.add('page-loaded');
                 });
-            });
-
-            // Break buttons dengan debounce
-            document.querySelectorAll('.break-btn').forEach(btn => {
-                btn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const minutes = parseInt(this.getAttribute('data-minutes'));
-                    console.log('Break button clicked:', minutes, 'isRunning:', isRunning);
-                    changeBreakTime(minutes);
-                });
-            });
-
-            // Character click event
-            characterContainer.addEventListener('click', () => {
-                characterContainer.classList.add('character-talking');
-                setTimeout(() => characterContainer.classList.remove('character-talking'), 500);
-                changeMotivationalQuote();
-            });
-
-            console.log('Event listeners initialized successfully');
+            }, 1000);
+        } catch (error) {
+            console.error('Error hiding splash screen:', error);
+            splashScreen.style.display = 'none';
         }
+    }
 
-        // ============================
-        // INITIALIZATION
-        // ============================
+    // ============================
+    // PERBAIKAN: EVENT LISTENERS
+    // ============================
 
-        function initializeApp() {
-            try {
-                preloadSplashImage();
-                updateDisplay();
-                initializeVideo();
-                initializeEventListeners();
-                loadSettings(); // Load saved settings
-                changeMotivationalQuote();
-                updateStatistics();
-                changeMusic('coffee-vibes');
-                updateVolumeExternal(50);
-
-                // Set initial audio state
-                backgroundMusic.volume = currentVolume;
-                completionSound.volume = currentVolume;
-
-                console.log('Pomodoro Timer initialized successfully!');
-                
-                // Hide splash screen
-                setTimeout(hideSplashScreen, 3000);
-            } catch (error) {
-                console.error('Error initializing app:', error);
-                // Fallback: langsung hide splash screen
-                setTimeout(() => {
-                    splashScreen.style.display = 'none';
-                    document.querySelectorAll('.page-transition').forEach(el => {
-                        el.classList.add('page-loaded');
-                    });
-                }, 1000);
-            }
-        }
-
-        // Start the app dengan error handling
-        document.addEventListener('DOMContentLoaded', function() {
-            safeExecute(initializeApp, null, 'App initialization failed');
+    function initializeMusicEvents() {
+        // Music control button dengan better handling
+        musicControlBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleMusicPanel();
         });
-    </script>
+
+        // Double click untuk toggle music
+        musicControlBtn.addEventListener('dblclick', function(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            toggleMusic();
+        });
+
+        // Music options selection
+        musicOptionsElements.forEach(option => {
+            option.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const musicId = this.dataset.music;
+                changeMusic(musicId);
+                
+                // Close panel setelah select (optional)
+                setTimeout(() => {
+                    closeMusicPanel();
+                }, 800);
+            });
+        });
+
+        // Volume control external dengan debounce
+        volumeSliderExternal.addEventListener('input', function(e) {
+            updateVolumeExternal(this.value);
+        });
+
+        // Click outside untuk close panel
+        document.addEventListener('click', function(e) {
+            if (musicPanelOpen && 
+                !musicPanel.contains(e.target) && 
+                !musicControlBtn.contains(e.target)) {
+                closeMusicPanel();
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && musicPanelOpen) {
+                closeMusicPanel();
+            }
+        });
+    }
+
+    function initializeEventListeners() {
+        console.log('Initializing event listeners...');
+        
+        // Timer Events
+        startBtn.addEventListener('click', startTimer);
+        pauseBtn.addEventListener('click', pauseTimer);
+        continueBtn.addEventListener('click', continueTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        // Music Events
+        initializeMusicEvents();
+
+        // Theme Events
+        themeButtons.forEach(btn => {
+            btn.addEventListener('click', () => changeTheme(btn.dataset.theme));
+        });
+
+        // Interval buttons dengan debounce
+        document.querySelectorAll('.interval-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const minutes = parseInt(this.getAttribute('data-minutes'));
+                changeInterval(minutes);
+            });
+        });
+
+        // Break buttons dengan debounce
+        document.querySelectorAll('.break-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const minutes = parseInt(this.getAttribute('data-minutes'));
+                changeBreakTime(minutes);
+            });
+        });
+
+        // Character click event
+        characterContainer.addEventListener('click', () => {
+            characterContainer.classList.add('character-talking');
+            setTimeout(() => characterContainer.classList.remove('character-talking'), 500);
+            changeMotivationalQuote();
+        });
+
+        console.log('Event listeners initialized successfully');
+    }
+
+    // ============================
+    // INITIALIZATION - DIPERBAIKI
+    // ============================
+
+    function initializeApp() {
+        try {
+            // 1. Inject mobile optimization CSS
+            injectMobileOptimizationCSS();
+            
+            // 2. Preload resources
+            preloadSplashImage();
+            
+            // 3. Initialize display
+            updateDisplay();
+            
+            // 4. Initialize video
+            initializeVideo();
+            
+            // 5. Load saved settings
+            loadSettings();
+            
+            // 6. Initialize event listeners
+            initializeEventListeners();
+            
+            // 7. Set initial states
+            changeMotivationalQuote();
+            updateStatistics();
+            changeMusic('coffee-vibes');
+            updateVolumeExternal(50);
+
+            // 8. Set initial audio state
+            backgroundMusic.volume = currentVolume;
+            completionSound.volume = currentVolume;
+
+            console.log('Pomodoro Timer initialized successfully!');
+            
+            // 9. Hide splash screen setelah semua diinisialisasi
+            setTimeout(hideSplashScreen, 3000);
+        } catch (error) {
+            console.error('Error initializing app:', error);
+            // Fallback: langsung hide splash screen
+            setTimeout(() => {
+                if (splashScreen) {
+                    splashScreen.style.display = 'none';
+                }
+                document.querySelectorAll('.page-transition').forEach(el => {
+                    el.classList.add('page-loaded');
+                });
+            }, 1000);
+        }
+    }
+
+    // Start the app dengan error handling yang DIPERBAIKI
+    document.addEventListener('DOMContentLoaded', function() {
+        safeExecute(initializeApp, null, 'App initialization failed');
+    });
+</script>
 </body>
 </html>
