@@ -28,6 +28,8 @@
                         'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
                         'slide-down': 'slide-down 0.3s ease-out',
                         'slide-up': 'slide-up 0.3s ease-out',
+                        'gradient': 'gradient 15s ease infinite',
+                        'pulse-soft': 'pulse-soft 2s ease-in-out infinite',
                     },
                     keyframes: {
                         float: {
@@ -49,6 +51,14 @@
                         'slide-up': {
                             '0%': { opacity: '1', transform: 'translateY(0)' },
                             '100%': { opacity: '0', transform: 'translateY(-10px)' },
+                        },
+                        'gradient': {
+                            '0%, 100%': { backgroundPosition: '0% 50%' },
+                            '50%': { backgroundPosition: '100% 50%' },
+                        },
+                        'pulse-soft': {
+                            '0%, 100%': { transform: 'scale(1)' },
+                            '50%': { transform: 'scale(1.05)' },
                         }
                     }
                 }
@@ -119,11 +129,13 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(135deg, #d4f1e6 0%, #a8e6cf 100%);
-            color: #5a5a5a;
+            background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+            background-size: 400% 400%;
+            color: #ffffff;
             text-align: center;
             z-index: 5;
             border-radius: 20px;
+            animation: gradient 15s ease infinite;
         }
 
         .achievement-badge {
@@ -667,6 +679,36 @@
             transform: translateY(0);
         }
 
+        /* Video Loading Spinner */
+        .video-loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid #ffaaa5;
+            border-right: 4px solid #a8e6cf;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+
+        /* Video Progress Bar */
+        .video-progress-bar {
+            width: 200px;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 15px 0;
+        }
+
+        .video-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ffaaa5, #a8e6cf);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 4px;
+        }
+
         /* Accessibility improvements */
         .skip-link {
             position: absolute;
@@ -807,6 +849,16 @@
                 align-self: flex-end;
                 margin-top: -0.5rem;
             }
+
+            /* Video loading untuk mobile */
+            .video-progress-bar {
+                width: 150px;
+            }
+            
+            /* PERBAIKAN TAMBAHAN: Video container untuk mobile */
+            .video-container {
+                min-height: 200px;
+            }
         }
 
         @media (max-width: 640px) {
@@ -945,6 +997,23 @@
 
             .music-control-btn i {
                 font-size: 1rem;
+            }
+
+            /* Video loading untuk mobile kecil */
+            .video-loading-spinner {
+                width: 50px;
+                height: 50px;
+            }
+
+            .video-progress-bar {
+                width: 120px;
+            }
+            
+            /* PERBAIKAN TAMBAHAN: Tombol yang lebih besar untuk mobile */
+            .control-btn, .main-btn, .secondary-btn {
+                min-height: 48px !important;
+                min-width: 48px !important;
+                padding: 12px !important;
             }
         }
 
@@ -1203,18 +1272,61 @@
                         </div>
                     </div>
 
-                    <!-- Video Container -->
+                    <!-- Video Container dengan Lazy Loading -->
                     <div class="video-container rounded-2xl overflow-hidden mb-2 relative">
-                        <video id="hikariVideo" class="w-full h-full object-cover rounded-2xl" muted playsinline autoplay aria-label="Anime character video background">
-                            <source src="./assets/videos/Blue Archive - Hikari Live2D - Jaymie (1080p, h264).mp4" type="video/mp4">
-                            Your browser does not support the video tag.
+                        <!-- Video element - TIDAK ADA SRC DI AWAL -->
+                        <video id="hikariVideo" class="w-full h-full object-cover rounded-2xl" 
+                               muted playsinline loop preload="metadata"
+                               aria-label="Anime character video background">
+                            <!-- Video source akan diatur oleh JavaScript -->
                         </video>
                         
+                        <!-- Fallback dengan loading indicator -->
                         <div id="videoFallback" class="video-fallback rounded-2xl">
-                            <div class="text-center">
-                                <i class="fas fa-video text-4xl text-soft-coral mb-2"></i>
-                                <p class="text-sm text-soft-gray/80">Video Placeholder</p>
+                            <div class="text-center p-6">
+                                <div class="video-loading-spinner"></div>
+                                <h3 class="text-xl font-bold text-white mb-2">HD Anime Companion</h3>
+                                <p class="text-white/80 mb-3">High-quality video (57MB)</p>
+                                
+                                <!-- Progress bar -->
+                                <div class="video-progress-bar mx-auto">
+                                    <div class="video-progress-fill" id="videoProgressFill"></div>
+                                </div>
+                                
+                                <p class="text-sm text-white/70 mb-4" id="videoStatus">Ready to load</p>
+                                
+                                <!-- Control buttons -->
+                                <div class="flex gap-3 justify-center">
+                                    <button id="loadVideoBtn" class="px-5 py-2 bg-white/90 text-soft-gray rounded-full font-semibold hover:bg-white transition-all duration-300 hover:scale-105">
+                                        <i class="fas fa-play mr-2"></i>Load Video
+                                    </button>
+                                    <button id="skipVideoBtn" class="px-5 py-2 bg-transparent border-2 border-white/50 text-white rounded-full font-semibold hover:bg-white/20 transition">
+                                        Skip Video
+                                    </button>
+                                </div>
+                                
+                                <p class="text-xs text-white/60 mt-4">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Click anywhere on page to auto-load
+                                </p>
                             </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Video Quality Info -->
+                    <div class="flex justify-between items-center mt-2 px-2">
+                        <span class="text-xs text-soft-gray/70">
+                            <i class="fas fa-hd mr-1"></i>
+                            <span id="videoSizeInfo">HD Quality (57MB)</span>
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-soft-gray/70">
+                                <i class="fas fa-sync-alt mr-1"></i>
+                                <span id="videoLoadStatus">Not loaded</span>
+                            </span>
+                            <button id="reloadVideoBtn" class="text-xs text-soft-coral hover:text-soft-coral/80 transition hidden">
+                                <i class="fas fa-redo"></i> Reload
+                            </button>
                         </div>
                     </div>
                 </section>
@@ -1426,13 +1538,6 @@
                 stack: error.stack,
                 timestamp: new Date().toISOString()
             });
-            // Log ke analytics jika ada
-            if (typeof gtag !== 'undefined') {
-                gtag('event', 'exception', {
-                    description: errorMessage,
-                    fatal: false
-                });
-            }
             return fallback;
         }
     };
@@ -1453,18 +1558,6 @@
                 return true;
             } catch (error2) {
                 console.error('Video play failed completely:', error2);
-                
-                const fallback = document.getElementById('videoFallback');
-                if (fallback) {
-                    fallback.style.display = 'flex';
-                }
-                
-                const tryOnce = () => {
-                    videoElement.play().catch(() => {});
-                    document.removeEventListener('click', tryOnce);
-                };
-                document.addEventListener('click', tryOnce);
-                
                 return false;
             }
         }
@@ -1479,12 +1572,11 @@
     let totalTime = 25 * 60;
     let isRunning = false;
     let isFocusSession = true;
-    let timerInterval;
     let sessionCounter = 0;
     let totalMinutesWorked = 0;
     let breakTime = 5 * 60;
     let currentFocusTime = 25 * 60;
-    let lastUpdate = performance.now(); // DIPERBAIKI: gunakan performance.now()
+    let lastUpdate = performance.now();
 
     // Settings
     let musicEnabled = false;
@@ -1510,18 +1602,25 @@
         earlyBird: false
     };
 
-    // Video Sequence Management
+    // Video Management - PERBAIKAN: Video lazy loading
     let currentVideoIndex = 0;
+    let isVideoLoading = false;
+    let isVideoLoaded = false;
+    let videoLoadStartTime = 0;
+    let userInteracted = false;
+    
     const videoSources = [
         {
             src: "./assets/videos/Blue Archive - Hikari Live2D - Jaymie (1080p, h264).mp4",
             title: "Blue Archive - Hikari",
-            subtitle: "Live2D Animation"
+            subtitle: "Live2D Animation",
+            size: "57MB"
         },
         {
             src: "./assets/videos/Blue Archive - Nozomi Live2D - Jaymie (1080p, h264).mp4", 
             title: "Blue Archive - Nozomi",
-            subtitle: "Live2D Animation"
+            subtitle: "Live2D Animation",
+            size: "57MB"
         }
     ];
 
@@ -1594,11 +1693,18 @@
     const sessionCount = document.getElementById('sessionCount');
     const totalMinutesEl = document.getElementById('totalMinutes');
 
-    // Video Elements
+    // Video Elements - PERBAIKAN: Lazy loading elements
     const videoElement = document.getElementById('hikariVideo');
     const videoFallback = document.getElementById('videoFallback');
     const videoTitle = document.getElementById('videoTitle');
     const videoSubtitle = document.getElementById('videoSubtitle');
+    const loadVideoBtn = document.getElementById('loadVideoBtn');
+    const skipVideoBtn = document.getElementById('skipVideoBtn');
+    const reloadVideoBtn = document.getElementById('reloadVideoBtn');
+    const videoProgressFill = document.getElementById('videoProgressFill');
+    const videoStatus = document.getElementById('videoStatus');
+    const videoSizeInfo = document.getElementById('videoSizeInfo');
+    const videoLoadStatus = document.getElementById('videoLoadStatus');
 
     // Audio Elements
     const backgroundMusic = document.getElementById('backgroundMusic');
@@ -1667,11 +1773,11 @@
     // TIMER FUNCTIONS - DIPERBAIKI
     // ============================
 
-    // Performance optimized timer menggunakan requestAnimationFrame DENGAN PERBAIKAN
+    // Performance optimized timer menggunakan requestAnimationFrame
     function animateTimer() {
         if (!isRunning) return;
         
-        const now = performance.now(); // DIPERBAIKI: gunakan performance API
+        const now = performance.now();
         const delta = now - lastUpdate;
         
         if (delta >= 1000) {
@@ -1704,7 +1810,7 @@
         if (isRunning) return;
         
         isRunning = true;
-        lastUpdate = performance.now(); // DIPERBAIKI
+        lastUpdate = performance.now();
         startBtn.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
         continueBtn.classList.add('hidden');
@@ -1733,7 +1839,7 @@
         if (isRunning) return;
         
         isRunning = true;
-        lastUpdate = performance.now(); // DIPERBAIKI
+        lastUpdate = performance.now();
         continueBtn.classList.add('hidden');
         pauseBtn.classList.remove('hidden');
         timerStatus.textContent = isFocusSession ? 'Stay focused!' : 'Take a break!';
@@ -1754,6 +1860,249 @@
         continueBtn.classList.add('hidden');
         
         timerStatus.textContent = isFocusSession ? 'Ready to focus' : 'Ready for break';
+    }
+
+    // ============================
+    // PERBAIKAN: VIDEO LAZY LOADING FUNCTIONS
+    // ============================
+
+    // Initialize video dengan lazy loading
+    function initializeVideo() {
+        // Tampilkan fallback di awal
+        videoFallback.style.display = 'flex';
+        
+        // Set video info
+        const currentVideo = videoSources[currentVideoIndex];
+        videoTitle.textContent = currentVideo.title;
+        videoSubtitle.textContent = currentVideo.subtitle;
+        videoSizeInfo.textContent = `HD Quality (${currentVideo.size})`;
+        
+        // Setup event listeners untuk video loading
+        setupVideoLoadingEvents();
+        
+        // PERBAIKAN: Auto-load video setelah 1 detik (bukan 8 detik)
+        setTimeout(() => {
+            if (!isVideoLoaded && !isVideoLoading) {
+                videoStatus.textContent = "Auto-loading video...";
+                // Coba load video secara otomatis
+                setTimeout(() => {
+                    if (!isVideoLoaded && !isVideoLoading && userInteracted) {
+                        loadVideo();
+                    }
+                }, 500);
+            }
+        }, 1000);
+    }
+
+    // Setup video loading events
+    function setupVideoLoadingEvents() {
+        // Load video button dengan passive: true untuk mobile
+        loadVideoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            loadVideo();
+        }, { passive: true });
+        
+        // Skip video button
+        skipVideoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            skipVideoLoading();
+        }, { passive: true });
+        
+        // Reload video button
+        reloadVideoBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            reloadVideo();
+        }, { passive: true });
+        
+        // Touch events untuk mobile
+        videoFallback.addEventListener('touchstart', (e) => {
+            if (!isVideoLoaded && !isVideoLoading) {
+                e.preventDefault();
+                userInteracted = true;
+                loadVideo();
+            }
+        }, { passive: true });
+        
+        // Click anywhere on page to load video
+        document.addEventListener('click', function loadVideoOnClick(e) {
+            // Skip jika klik pada video controls
+            if (e.target.closest('.music-control-container') || 
+                e.target.closest('.theme-btn') ||
+                e.target.closest('.control-btn') ||
+                e.target.closest('.main-btn') ||
+                e.target.closest('.secondary-btn')) {
+                return;
+            }
+            
+            if (!isVideoLoaded && !isVideoLoading) {
+                userInteracted = true;
+                loadVideo();
+            }
+            
+            // Remove listener setelah pertama kali klik
+            document.removeEventListener('click', loadVideoOnClick);
+        }, { passive: true });
+    }
+
+    // Load video function
+    function loadVideo() {
+        if (isVideoLoading || isVideoLoaded) return;
+        
+        isVideoLoading = true;
+        videoLoadStartTime = Date.now();
+        
+        const currentVideo = videoSources[currentVideoIndex];
+        
+        // Update UI
+        videoStatus.textContent = "Loading HD video...";
+        videoLoadStatus.textContent = "Loading...";
+        
+        // PERBAIKAN: Ganti teks tombol tanpa disable
+        loadVideoBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Loading...';
+        
+        // Set video source
+        videoElement.src = currentVideo.src;
+        
+        // PERBAIKAN: Tambahkan preload
+        videoElement.preload = "auto";
+        videoElement.load();
+        
+        // Setup progress tracking
+        setupVideoProgressTracking();
+        
+        // Video event listeners
+        videoElement.addEventListener('loadeddata', onVideoLoaded);
+        videoElement.addEventListener('error', onVideoError);
+        videoElement.addEventListener('canplay', onVideoCanPlay);
+        videoElement.addEventListener('ended', onVideoEnded);
+        
+        showNotification('video', 'Loading HD video...');
+    }
+
+    // Setup video progress tracking
+    function setupVideoProgressTracking() {
+        let progressInterval = setInterval(() => {
+            if (videoElement.buffered.length > 0 && videoElement.duration > 0) {
+                const bufferedEnd = videoElement.buffered.end(videoElement.buffered.length - 1);
+                const duration = videoElement.duration;
+                const progress = (bufferedEnd / duration) * 100;
+                
+                videoProgressFill.style.width = `${progress}%`;
+                
+                // Update status text
+                const elapsedTime = (Date.now() - videoLoadStartTime) / 1000;
+                videoStatus.textContent = `Loading... ${Math.round(progress)}% (${Math.round(elapsedTime)}s)`;
+                
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                }
+            }
+        }, 500);
+    }
+
+    // Video loaded successfully
+    function onVideoLoaded() {
+        console.log('Video loaded successfully');
+        videoLoadStatus.textContent = "Loaded";
+        reloadVideoBtn.classList.remove('hidden');
+    }
+
+    // Video can play
+    function onVideoCanPlay() {
+        isVideoLoading = false;
+        isVideoLoaded = true;
+        
+        // Hide fallback setelah video siap
+        setTimeout(() => {
+            videoFallback.style.display = 'none';
+            videoElement.style.display = 'block';
+            
+            // Try to play video
+            safeExecute(() => {
+                videoElement.muted = true;
+                return videoElement.play();
+            }).then(success => {
+                if (success) {
+                    showNotification('check', 'HD video loaded successfully!');
+                }
+            });
+            
+            // Update UI
+            const loadTime = (Date.now() - videoLoadStartTime) / 1000;
+            videoStatus.textContent = `Loaded in ${Math.round(loadTime)}s`;
+            loadVideoBtn.style.display = 'none';
+            skipVideoBtn.style.display = 'none';
+            
+        }, 500);
+    }
+
+    // Video error
+    function onVideoError(e) {
+        console.error('Video loading error:', e);
+        isVideoLoading = false;
+        
+        videoStatus.textContent = "Error loading video";
+        videoLoadStatus.textContent = "Error";
+        loadVideoBtn.innerHTML = '<i class="fas fa-redo mr-2"></i>Retry';
+        
+        showNotification('exclamation-triangle', 'Video loading failed. Click to retry.');
+    }
+
+    // Video ended
+    function onVideoEnded() {
+        // Load next video in sequence
+        loadNextVideo();
+    }
+
+    // Load next video
+    function loadNextVideo() {
+        if (isVideoLoading) return;
+        
+        currentVideoIndex = (currentVideoIndex + 1) % videoSources.length;
+        const nextVideo = videoSources[currentVideoIndex];
+        
+        // Update UI
+        videoTitle.textContent = nextVideo.title;
+        videoSubtitle.textContent = nextVideo.subtitle;
+        videoSizeInfo.textContent = `HD Quality (${nextVideo.size})`;
+        
+        // Reload video
+        reloadVideo();
+    }
+
+    // Skip video loading
+    function skipVideoLoading() {
+        videoFallback.style.display = 'none';
+        videoElement.style.display = 'block';
+        isVideoLoaded = true;
+        
+        // Use gradient background instead
+        videoFallback.style.background = 'linear-gradient(-45deg, #a8e6cf, #ffaaa5, #87CEEB, #D8BFD8)';
+        
+        showNotification('info', 'Using placeholder background');
+    }
+
+    // Reload video
+    function reloadVideo() {
+        isVideoLoaded = false;
+        isVideoLoading = false;
+        
+        // Reset UI
+        videoFallback.style.display = 'flex';
+        videoElement.style.display = 'none';
+        videoProgressFill.style.width = '0%';
+        videoStatus.textContent = 'Ready to load';
+        videoLoadStatus.textContent = 'Not loaded';
+        loadVideoBtn.innerHTML = '<i class="fas fa-play mr-2"></i>Load Video';
+        loadVideoBtn.style.display = 'block';
+        skipVideoBtn.style.display = 'block';
+        reloadVideoBtn.classList.add('hidden');
+        
+        // Load video
+        setTimeout(() => {
+            loadVideo();
+        }, 300);
     }
 
     // ============================
@@ -1816,60 +2165,60 @@
     // CSS PERBAIKAN UNTUK MOBILE EXTREME
     // ============================
 
-    // Tambahkan CSS untuk mobile extreme (iPhone SE)
-    const mobileOptimizationCSS = `
-        @media (max-width: 320px) {
-            .timer-container {
-                min-height: 140px !important; /* JAMIN MINIMAL SIZE */
-                height: clamp(140px, 25vw, 160px) !important;
-            }
-            
-            .progress-ring {
-                width: clamp(120px, 22vw, 140px) !important;
-                height: clamp(120px, 22vw, 140px) !important;
-            }
-            
-            .timer-text {
-                padding: 0.25rem !important;
-            }
-            
-            .text-4xl, .text-5xl {
-                font-size: 2rem !important;
-            }
-            
-            /* Pastikan touch target cukup besar */
-            .control-btn, .main-btn, .secondary-btn {
-                min-height: 44px !important;
-                min-width: 44px !important;
-            }
-            
-            /* Optimasi spacing untuk device kecil */
-            .space-y-6 > * {
-                margin-top: 0.5rem !important;
-                margin-bottom: 0.5rem !important;
-            }
-        }
-        
-        @media (max-width: 280px) {
-            /* Untuk device yang sangat kecil */
-            .timer-container {
-                min-height: 130px !important;
-                height: clamp(130px, 20vw, 150px) !important;
-            }
-            
-            .progress-ring {
-                width: clamp(110px, 20vw, 130px) !important;
-                height: clamp(110px, 20vw, 130px) !important;
-            }
-            
-            .text-4xl, .text-5xl {
-                font-size: 1.75rem !important;
-            }
-        }
-    `;
-
-    // Inject CSS untuk mobile optimization
+    // Tambahkan CSS untuk mobile optimization
     function injectMobileOptimizationCSS() {
+        const mobileOptimizationCSS = `
+            @media (max-width: 320px) {
+                .timer-container {
+                    min-height: 140px !important;
+                    height: clamp(140px, 25vw, 160px) !important;
+                }
+                
+                .progress-ring {
+                    width: clamp(120px, 22vw, 140px) !important;
+                    height: clamp(120px, 22vw, 140px) !important;
+                }
+                
+                .timer-text {
+                    padding: 0.25rem !important;
+                }
+                
+                .text-4xl, .text-5xl {
+                    font-size: 2rem !important;
+                }
+                
+                .control-btn, .main-btn, .secondary-btn {
+                    min-height: 44px !important;
+                    min-width: 44px !important;
+                }
+                
+                .space-y-6 > * {
+                    margin-top: 0.5rem !important;
+                    margin-bottom: 0.5rem !important;
+                }
+                
+                .video-progress-bar {
+                    width: 100px !important;
+                }
+            }
+            
+            @media (max-width: 280px) {
+                .timer-container {
+                    min-height: 130px !important;
+                    height: clamp(130px, 20vw, 150px) !important;
+                }
+                
+                .progress-ring {
+                    width: clamp(110px, 20vw, 130px) !important;
+                    height: clamp(110px, 20vw, 130px) !important;
+                }
+                
+                .text-4xl, .text-5xl {
+                    font-size: 1.75rem !important;
+                }
+            }
+        `;
+        
         const style = document.createElement('style');
         style.textContent = mobileOptimizationCSS;
         document.head.appendChild(style);
@@ -2009,7 +2358,8 @@
             volume: currentVolume,
             currentMusic: currentMusic,
             achievements: achievements,
-            stats: stats
+            stats: stats,
+            videoLoaded: isVideoLoaded
         };
         try {
             localStorage.setItem('animePomodoroSettings', JSON.stringify(settings));
@@ -2035,6 +2385,14 @@
                 if (settings.currentMusic) changeMusic(settings.currentMusic);
                 if (settings.achievements) achievements = {...achievements, ...settings.achievements};
                 if (settings.stats) stats = {...stats, ...settings.stats};
+                if (settings.videoLoaded === true) {
+                    // Auto load video jika sebelumnya sudah loaded
+                    setTimeout(() => {
+                        if (!isVideoLoading && !isVideoLoaded && userInteracted) {
+                            loadVideo();
+                        }
+                    }, 1000);
+                }
                 
                 // Update UI berdasarkan settings
                 updateMusicUI();
@@ -2061,62 +2419,6 @@
             option.classList.toggle('active', isActive);
             option.setAttribute('aria-checked', isActive.toString());
         });
-    }
-
-    // ============================
-    // VIDEO FUNCTIONS
-    // ============================
-
-    // Initialize video dengan comprehensive error handling
-    function initializeVideo() {
-        // Hide fallback when video loads successfully
-        videoElement.addEventListener('loadeddata', () => {
-            videoFallback.style.display = 'none';
-        });
-
-        // Handle video end event untuk lanjut ke video berikutnya
-        videoElement.addEventListener('ended', () => {
-            loadNextVideo();
-        });
-
-        // Show fallback if video fails to load
-        videoElement.addEventListener('error', () => {
-            console.error('Video loading error');
-            videoFallback.style.display = 'flex';
-        });
-
-        // Auto play video pertama setelah splash screen
-        setTimeout(() => {
-            if (videoElement.paused) {
-                playVideoSafely(videoElement);
-            }
-        }, 3500);
-    }
-
-    // Load next video in sequence dengan error handling
-    function loadNextVideo() {
-        try {
-            currentVideoIndex = (currentVideoIndex + 1) % videoSources.length;
-            const nextVideo = videoSources[currentVideoIndex];
-            
-            videoElement.src = nextVideo.src;
-            videoTitle.textContent = nextVideo.title;
-            videoSubtitle.textContent = nextVideo.subtitle;
-            
-            // Update character image based on current video
-            if (nextVideo.title.includes('Hikari')) {
-                characterImage.src = "./assets/images/Hikari_icon.jpg";
-                characterImage.alt = "Character companion Hikari";
-            } else if (nextVideo.title.includes('Nozomi')) {
-                characterImage.src = "./assets/images/Nozomi_icon.jpg";
-                characterImage.alt = "Character companion Nozomi";
-            }
-            
-            playVideoSafely(videoElement);
-        } catch (error) {
-            console.error('Error loading next video:', error);
-            videoFallback.style.display = 'flex';
-        }
     }
 
     // ============================
@@ -2171,6 +2473,7 @@
         // Play completion sound dengan error handling
         if (soundEnabled) {
             safeExecute(() => {
+                completionSound.currentTime = 0;
                 completionSound.volume = currentVolume;
                 return completionSound.play();
             });
@@ -2261,8 +2564,13 @@
             notifIcon.className = `fas fa-${icon}`;
             notifText.textContent = message;
             notification.classList.remove('hidden');
+            
+            // Animate notification
+            notification.style.animation = 'slide-down 0.3s ease-out';
+            
             setTimeout(() => {
                 notification.classList.add('hidden');
+                notification.style.animation = '';
             }, 3000);
         } catch (error) {
             console.error('Error showing notification:', error);
@@ -2278,8 +2586,8 @@
             const container = document.querySelector('.splash-character-container');
             if (container) {
                 container.innerHTML = `
-                    <div class="splash-character-fallback">
-                        <i class="fas fa-user-friends"></i>
+                    <div class="w-full h-full rounded-full bg-gradient-to-br from-soft-coral to-soft-mint flex items-center justify-center">
+                        <i class="fas fa-user-friends text-white text-4xl"></i>
                     </div>
                 `;
             }
@@ -2309,12 +2617,20 @@
             splashScreen.style.opacity = '0';
             splashScreen.style.transform = 'scale(1.1)';
             
+            // PERBAIKAN: Kurangi waktu dari 1000ms menjadi 300ms
             setTimeout(() => {
                 splashScreen.style.display = 'none';
                 document.querySelectorAll('.page-transition').forEach(el => {
                     el.classList.add('page-loaded');
                 });
-            }, 1000);
+                
+                // Auto load video setelah splash screen hilang
+                setTimeout(() => {
+                    if (!isVideoLoaded && !isVideoLoading && userInteracted) {
+                        loadVideo();
+                    }
+                }, 500);
+            }, 300); // Dikurangi dari 1000ms
         } catch (error) {
             console.error('Error hiding splash screen:', error);
             splashScreen.style.display = 'none';
@@ -2346,7 +2662,7 @@
                 const musicId = this.dataset.music;
                 changeMusic(musicId);
                 
-                // Close panel setelah select (optional)
+                // Close panel setelah select
                 setTimeout(() => {
                     closeMusicPanel();
                 }, 800);
@@ -2371,6 +2687,15 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && musicPanelOpen) {
                 closeMusicPanel();
+            }
+            // Space untuk pause/play timer
+            if (e.key === ' ' && !e.target.matches('button, input, textarea')) {
+                e.preventDefault();
+                if (isRunning) {
+                    pauseTimer();
+                } else if (timeLeft > 0) {
+                    startTimer();
+                }
             }
         });
     }
@@ -2419,6 +2744,22 @@
             changeMotivationalQuote();
         });
 
+        // Video click untuk next video
+        videoElement.addEventListener('click', () => {
+            if (isVideoLoaded) {
+                loadNextVideo();
+            }
+        });
+
+        // User interaction detection
+        document.addEventListener('click', () => {
+            userInteracted = true;
+        });
+        
+        document.addEventListener('touchstart', () => {
+            userInteracted = true;
+        });
+
         console.log('Event listeners initialized successfully');
     }
 
@@ -2428,20 +2769,21 @@
 
     function initializeApp() {
         try {
-            // 1. Inject mobile optimization CSS
-            injectMobileOptimizationCSS();
-            
-            // 2. Preload resources
+            // 1. Preload resources terlebih dahulu
             preloadSplashImage();
+            
+            // 2. Load saved settings
+            loadSettings();
             
             // 3. Initialize display
             updateDisplay();
             
-            // 4. Initialize video
-            initializeVideo();
+            // 4. Set initial audio state
+            backgroundMusic.volume = currentVolume;
+            completionSound.volume = currentVolume;
             
-            // 5. Load saved settings
-            loadSettings();
+            // 5. Initialize video dengan lazy loading
+            initializeVideo();
             
             // 6. Initialize event listeners
             initializeEventListeners();
@@ -2452,17 +2794,16 @@
             changeMusic('coffee-vibes');
             updateVolumeExternal(50);
 
-            // 8. Set initial audio state
-            backgroundMusic.volume = currentVolume;
-            completionSound.volume = currentVolume;
-
-            console.log('Pomodoro Timer initialized successfully!');
+            console.log('Anime Pomodoro Timer initialized successfully!');
             
-            // 9. Hide splash screen setelah semua diinisialisasi
-            setTimeout(hideSplashScreen, 3000);
+            // 8. Inject mobile optimization CSS
+            injectMobileOptimizationCSS();
+            
+            // 9. Hide splash screen lebih cepat
+            setTimeout(hideSplashScreen, 1500); // Dikurangi dari 3000ms
         } catch (error) {
             console.error('Error initializing app:', error);
-            // Fallback: langsung hide splash screen
+            // Fallback lebih cepat
             setTimeout(() => {
                 if (splashScreen) {
                     splashScreen.style.display = 'none';
@@ -2470,13 +2811,31 @@
                 document.querySelectorAll('.page-transition').forEach(el => {
                     el.classList.add('page-loaded');
                 });
-            }, 1000);
+                // Coba load video
+                setTimeout(() => {
+                    if (!isVideoLoaded && !isVideoLoading && userInteracted) {
+                        loadVideo();
+                    }
+                }, 500);
+            }, 500);
         }
     }
 
     // Start the app dengan error handling yang DIPERBAIKI
     document.addEventListener('DOMContentLoaded', function() {
         safeExecute(initializeApp, null, 'App initialization failed');
+    });
+
+    // Prevent right-click context menu
+    document.addEventListener('contextmenu', function(e) {
+        if (e.target.tagName === 'VIDEO' || e.target.tagName === 'AUDIO') {
+            e.preventDefault();
+        }
+    });
+    
+    // Save video state sebelum page unload
+    window.addEventListener('beforeunload', function() {
+        saveSettings();
     });
 </script>
 </body>
